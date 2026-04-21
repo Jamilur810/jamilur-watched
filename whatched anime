@@ -1,0 +1,180 @@
+import React, { useState, useEffect } from "react";
+
+export default function AnimeWatchlist() {
+  const [animeList, setAnimeList] = useState([]);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [animatingId, setAnimatingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [tempName, setTempName] = useState("");
+
+  // 💾 local storage load
+  useEffect(() => {
+    const saved = localStorage.getItem("animeList");
+    if (saved) setAnimeList(JSON.parse(saved));
+  }, []);
+
+  // 💾 local storage save
+  useEffect(() => {
+    localStorage.setItem("animeList", JSON.stringify(animeList));
+  }, [animeList]);
+
+  // ➕ upload image
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const name = prompt("Enter anime name:") || "Untitled";
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAnimeList([
+        ...animeList,
+        { id: Date.now(), image: reader.result, rating: 0, name },
+      ]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 🗑️ delete
+  const deleteAnime = (id) => {
+    setAnimeList(animeList.filter((a) => a.id !== id));
+  };
+
+  // ✏️ edit start
+  const startEdit = (anime) => {
+    setEditingId(anime.id);
+    setTempName(anime.name);
+  };
+
+  // 💾 save name
+  const saveName = (id) => {
+    if (!tempName.trim()) return;
+    setAnimeList(
+      animeList.map((a) => (a.id === id ? { ...a, name: tempName } : a))
+    );
+    setEditingId(null);
+    setTempName("");
+  };
+
+  // ⭐ rating
+  const setRating = (id, rating) => {
+    setAnimeList(
+      animeList.map((a) => (a.id === id ? { ...a, rating } : a))
+    );
+
+    setAnimatingId(id);
+    setTimeout(() => setAnimatingId(null), 500);
+  };
+
+  // drag
+  const handleDragStart = (index) => setDragIndex(index);
+  const handleDrop = (index) => {
+    if (dragIndex === null) return;
+    const newList = [...animeList];
+    const item = newList[dragIndex];
+    newList.splice(dragIndex, 1);
+    newList.splice(index, 0, item);
+    setAnimeList(newList);
+    setDragIndex(null);
+  };
+
+  const Star = ({ filled, onClick }) => (
+    <span
+      onClick={onClick}
+      className={`cursor-pointer text-xl transition-transform duration-200 hover:scale-125 ${filled ? "text-yellow-400" : "text-gray-300"}`}
+    >
+      ★
+    </span>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#fdf6ec] text-gray-800 p-2">
+
+      {/* 🌈 LOGO */}
+      <h1 className="text-4xl font-bold text-center mb-3">
+        <span className="bg-gradient-to-r from-blue-500 via-sky-400 to-indigo-500 bg-clip-text text-transparent animate-pulse tracking-wide drop-shadow-md">
+          Jamilur's Watched
+        </span>
+      </h1>
+
+      {/* ➕ UPLOAD */}
+      <div className="flex justify-center mb-2">
+        <label className="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow cursor-pointer hover:scale-110 transition text-xl">
+          +
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+        </label>
+      </div>
+
+      {/* 🎬 GRID */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+        {animeList.map((anime, index) => (
+          <div
+            key={anime.id}
+            draggable
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleDrop(index)}
+            className="relative group overflow-hidden"
+          >
+
+            {/* 🗑 delete */}
+            <button
+              onClick={() => deleteAnime(anime.id)}
+              className="absolute top-1 right-1 text-xs bg-black/40 text-white px-1 rounded opacity-0 group-hover:opacity-100 transition cursor-pointer z-10"
+            >
+              🗑️
+            </button>
+
+            {/* 🖼 image */}
+            <img
+              src={anime.image}
+              alt="anime"
+              className="w-full h-auto block transform transition duration-200 group-hover:scale-105"
+            />
+
+            {/* 🏷 NAME TOP (hover only) */}
+            <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition flex items-center justify-center py-2">
+              {editingId === anime.id ? (
+                <input
+                  value={tempName}
+                  autoFocus
+                  onChange={(e) => setTempName(e.target.value)}
+                  onBlur={() => saveName(anime.id)}
+                  onKeyDown={(e) => e.key === "Enter" && saveName(anime.id)}
+                  className="text-white bg-transparent border-b border-white text-sm text-center outline-none"
+                />
+              ) : (
+                <span
+                  onClick={() => startEdit(anime)}
+                  className="text-white text-sm drop-shadow-md cursor-pointer"
+                >
+                  {anime.name}
+                </span>
+              )}
+            </div>
+
+            {/* ⭐ rating */}
+            <div
+              className={`flex justify-center gap-1 py-1 bg-white/80 transition ${animatingId === anime.id ? "animate-pulse" : ""}`}
+            >
+              {[1, 2, 3].map((star) => (
+                <Star
+                  key={star}
+                  filled={anime.rating >= star}
+                  onClick={() => setRating(anime.id, star)}
+                />
+              ))}
+            </div>
+
+          </div>
+        ))}
+      </div>
+
+    </div>
+  );
+}
